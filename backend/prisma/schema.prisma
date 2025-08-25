@@ -1,0 +1,180 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = "postgresql://droneuser:Dr0nE!2025@localhost:5432/dronedelivery"
+}
+
+model User {
+    id        String   @id @default(cuid())
+    email     String   @unique
+    password  String
+    name      String
+    phone     String?
+    role      Role     @default(CUSTOMER)
+    isActive  Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relations
+    orders         Order[]
+    operatedDrones Drone[] @relation("OperatorDrones")
+
+    @@map("users")
+}
+
+model Drone {
+    id              String      @id @default(cuid())
+    name            String
+    model           String
+    capacity        Float // in kg
+    battery         Int         @default(100) // percentage
+    status          DroneStatus @default(AVAILABLE)
+    latitude        Float?
+    longitude       Float?
+    homeLatitude    Float
+    homeLongitude   Float
+    lastMaintenance DateTime?
+    isActive        Boolean     @default(true)
+    createdAt       DateTime    @default(now())
+    updatedAt       DateTime    @updatedAt
+
+    // Relations
+    operatorId String?
+    operator   User?            @relation("OperatorDrones", fields: [operatorId], references: [id])
+    orders     Order[]
+    telemetry  DroneTelemetry[]
+    missions   Mission[]
+
+    @@map("drones")
+}
+
+model Order {
+    id                   String      @id @default(cuid())
+    customerId           String
+    droneId              String?
+    pickupAddress        String
+    deliveryAddress      String
+    pickupLatitude       Float
+    pickupLongitude      Float
+    deliveryLatitude     Float
+    deliveryLongitude    Float
+    packageWeight        Float
+    packageDescription   String
+    deliveryInstructions String?
+    urgency              Urgency     @default(STANDARD)
+    status               OrderStatus @default(PENDING)
+    estimatedDelivery    DateTime?
+    actualDelivery       DateTime?
+    trackingCode         String      @unique
+    totalDistance        Float?
+    deliveryFee          Float?
+    createdAt            DateTime    @default(now())
+    updatedAt            DateTime    @updatedAt
+
+    // Relations
+    customer       User            @relation(fields: [customerId], references: [id])
+    drone          Drone?          @relation(fields: [droneId], references: [id])
+    missions       Mission[]
+    trackingEvents TrackingEvent[]
+
+    @@map("orders")
+}
+
+model Mission {
+    id                String        @id @default(cuid())
+    orderId           String
+    droneId           String
+    status            MissionStatus @default(ASSIGNED)
+    startTime         DateTime?
+    endTime           DateTime?
+    route             Json // Store route coordinates
+    currentStep       Int           @default(0)
+    totalSteps        Int
+    estimatedDuration Int // in minutes
+    actualDuration    Int? // in minutes
+    failureReason     String?
+    createdAt         DateTime      @default(now())
+    updatedAt         DateTime      @updatedAt
+
+    // Relations
+    order Order @relation(fields: [orderId], references: [id])
+    drone Drone @relation(fields: [droneId], references: [id])
+
+    @@map("missions")
+}
+
+model DroneTelemetry {
+    id          String   @id @default(cuid())
+    droneId     String
+    latitude    Float
+    longitude   Float
+    altitude    Float
+    battery     Int
+    speed       Float
+    temperature Float?
+    humidity    Float?
+    timestamp   DateTime @default(now())
+
+    // Relations
+    drone Drone @relation(fields: [droneId], references: [id])
+
+    @@map("drone_telemetry")
+}
+
+model TrackingEvent {
+    id          String   @id @default(cuid())
+    orderId     String
+    event       String
+    description String
+    location    String?
+    latitude    Float?
+    longitude   Float?
+    timestamp   DateTime @default(now())
+
+    // Relations
+    order Order @relation(fields: [orderId], references: [id])
+
+    @@map("tracking_events")
+}
+
+enum Role {
+    ADMIN
+    OPERATOR
+    CUSTOMER
+}
+
+enum DroneStatus {
+    AVAILABLE
+    DELIVERING
+    CHARGING
+    MAINTENANCE
+    OFFLINE
+}
+
+enum OrderStatus {
+    PENDING
+    ASSIGNED
+    PICKED_UP
+    IN_TRANSIT
+    DELIVERED
+    CANCELLED
+    FAILED
+}
+
+enum MissionStatus {
+    ASSIGNED
+    IN_PROGRESS
+    PAUSED
+    COMPLETED
+    ABORTED
+    FAILED
+}
+
+enum Urgency {
+    STANDARD
+    PRIORITY
+    URGENT
+}
