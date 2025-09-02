@@ -23,6 +23,53 @@ const createOrderSchema = Joi.object({
     .default("STANDARD"),
 });
 
+// Calculate delivery estimate
+router.post("/estimate", async (req, res, next) => {
+  try {
+    const { error, value } = createOrderSchema.validate(req.body);
+    if (error) {
+      // For estimate, we only need a subset of fields. Ignore missing fields that are not relevant for estimate calculation.
+      const allowedForEstimate = [
+        "pickupLatitude",
+        "pickupLongitude",
+        "deliveryLatitude",
+        "deliveryLongitude",
+        "packageWeight",
+        "urgency",
+      ];
+      const filteredErrors = error.details.filter((detail) =>
+        allowedForEstimate.includes(detail.context.key)
+      );
+      if (filteredErrors.length > 0) return next({status: 400, message: filteredErrors[0].message});
+    }
+
+    const { pickupLatitude, pickupLongitude, deliveryLatitude, deliveryLongitude, packageWeight, urgency } = req.body;
+
+    if (!pickupLatitude || !pickupLongitude || !deliveryLatitude || !deliveryLongitude || !packageWeight || !urgency) {
+      return next({status: 400, message: "Missing required fields for estimate calculation"});
+    }
+
+    const distance = calculateDistance(
+      pickupLatitude,
+      pickupLongitude,
+      deliveryLatitude,
+      deliveryLongitude
+    );
+
+    const deliveryFee = calculateDeliveryFee(distance, urgency, packageWeight);
+    const estimatedDeliveryTime = calculateEstimatedDelivery(urgency);
+
+    res.json({
+      distance: parseFloat(distance.toFixed(2)),
+      fee: parseFloat(deliveryFee.toFixed(2)),
+      estimatedDeliveryTime,
+      urgency,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Create order
 router.post("/", async (req, res, next) => {
   try {

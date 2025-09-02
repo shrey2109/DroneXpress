@@ -57,11 +57,11 @@ router.get("/dashboard", adminOnly, async (req, res, next) => {
 
     // Average delivery time
     const avgDeliveryTime = await prisma.$queryRaw`
-      SELECT AVG(EXTRACT(EPOCH FROM (actual_delivery - created_at))/60) as avg_minutes
+      SELECT AVG(EXTRACT(EPOCH FROM (actualDelivery - createdAt))/60) as avg_minutes
       FROM orders 
       WHERE status = 'DELIVERED' 
-      AND actual_delivery IS NOT NULL 
-      AND created_at >= ${weekAgo.toDate()}
+      AND actualDelivery IS NOT NULL 
+      AND createdAt >= ${weekAgo.toDate()}
     `;
 
     // On-time rate
@@ -115,13 +115,13 @@ router.get("/daily-deliveries", adminOnly, async (req, res, next) => {
 
     const dailyStats = await prisma.$queryRaw`
       SELECT 
-        DATE(created_at) as date,
+        DATE(createdAt) as date,
         COUNT(CASE WHEN status = 'DELIVERED' THEN 1 END)::int as deliveries,
-        COUNT(CASE WHEN status = 'DELIVERED' AND actual_delivery <= estimated_delivery THEN 1 END)::int as on_time,
-        COUNT(CASE WHEN status = 'DELIVERED' AND actual_delivery > estimated_delivery THEN 1 END)::int as delayed
+        COUNT(CASE WHEN status = 'DELIVERED' AND actualDelivery <= estimatedDelivery THEN 1 END)::int as on_time,
+        COUNT(CASE WHEN status = 'DELIVERED' AND actualDelivery > estimatedDelivery THEN 1 END)::int as delayed
       FROM orders 
-      WHERE created_at >= ${startDate.toDate()}
-      GROUP BY DATE(created_at)
+      WHERE createdAt >= ${startDate.toDate()}
+      GROUP BY DATE(createdAt)
       ORDER BY date
     `;
 
@@ -139,13 +139,13 @@ router.get("/drone-utilization", adminOnly, async (req, res, next) => {
         d.name,
         d.id,
         COUNT(m.id)::int as total_missions,
-        AVG(CASE WHEN m.actual_duration IS NOT NULL THEN m.actual_duration END)::int as avg_duration,
+        AVG(CASE WHEN m.actualDuration IS NOT NULL THEN m.actualDuration END)::int as avg_duration,
         COUNT(CASE WHEN m.status = 'COMPLETED' THEN 1 END)::int as completed_missions
       FROM drones d
-      LEFT JOIN missions m ON d.id = m.drone_id AND m.created_at >= ${moment()
+      LEFT JOIN missions m ON d.id = m.droneId AND m.createdAt >= ${moment()
         .subtract(30, "days")
         .toDate()}
-      WHERE d.is_active = true
+      WHERE d.isActive = true
       GROUP BY d.id, d.name
       ORDER BY total_missions DESC
     `;
